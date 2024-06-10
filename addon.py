@@ -1,26 +1,3 @@
-# This program is free software: you can redistribute it and/or modify 
-# it under the terms of the GNU General Public License as published by 
-# the Free Software Foundation, either version 2 of the License, or
-# at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful, 
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program. If not, see <https://www.gnu.org/licenses/>.
-
-bl_info = {
-    "name": "Microbi Assembly Sequencer",
-    "blender": (3, 6, 7),
-    "category": "Object",
-    "description": "A toolset for creating an assembly sequence of multi-part designs",
-    "author": "Laura Maria Gonzalez",
-    "version": (1, 0),
-    "location": "View3D > Tool"
-}
-
 import bpy
 import bmesh
 import heapq
@@ -45,29 +22,6 @@ def update_edge_text_size(self, context):
         if obj.type == 'FONT' and obj.name.startswith("Edge_"):
             print(f"Updating {obj.name} to size {context.scene.microbi_edge_text_size}")
             obj.data.size = context.scene.microbi_edge_text_size
-
-bpy.types.Scene.microbi_face_text_size = bpy.props.FloatProperty(
-    name="Face Text Size",
-    description="Size of the text created by the sequencer for faces",
-    default=0.01,
-    min=0.001,
-    max=100,
-    update=update_face_text_size
-)
-
-bpy.types.Scene.microbi_edge_text_size = bpy.props.FloatProperty(
-    name="Edge Text Size",
-    description="Size of the text created by the sequencer for edges",
-    default=0.01,
-    min=0.001,
-    max=100,
-    update=update_edge_text_size
-)
-
-bpy.types.Scene.microbi_component_name = bpy.props.StringProperty(
-    name="Component Name",
-    description="Name of the component to select",
-)
 
 # Property group to store face data, including index, centroid, and transformation matrix
 class FaceDataPropertyGroup(bpy.types.PropertyGroup):
@@ -368,7 +322,7 @@ class MICROBI_OT_create_mst(bpy.types.Operator):
 
         def add_gp_material(gpencil):
             material_name = "GP_Material"
-            if material_name not in bpy.data.materials:
+            if (material_name not in bpy.data.materials):
                 gp_material = bpy.data.materials.new(name=material_name)
                 bpy.data.materials.create_gpencil_data(gp_material)
                 gp_material.grease_pencil.color = (0.94, 0.99, 0.91, 1)
@@ -700,133 +654,3 @@ class MICROBI_OT_edge_naming(bpy.types.Operator):
                 edge_text_obj.name = f"Edge_{edge.index}_Label"
 
         return {'FINISHED'}
-
-# Operator to select a component by its part name
-class MICROBI_OT_select_component(bpy.types.Operator):
-    bl_idname = "object.microbi_select_component"
-    bl_label = "Select Component"
-    bl_description = "Select a component by its name"
-
-    def execute(self, context):
-        component_name = context.scene.microbi_component_name
-        obj = bpy.data.objects.get(component_name)
-
-        if obj:
-            bpy.ops.object.select_all(action='DESELECT')
-            obj.select_set(True)
-            context.view_layer.objects.active = obj
-            self.report({'INFO'}, f"Selected component: {component_name}")
-        else:
-            self.report({'ERROR'}, f"Component '{component_name}' does not exist")
-
-        return {'FINISHED'}
-
-# User interface panel for the Microbi Assembly Sequencer add-on in the 3D view's Tool tab
-class MicrobiAssemblySequencerPanel(bpy.types.Panel):
-    bl_label = "Microbi Assembly Sequencer"
-    bl_idname = "OBJECT_PT_microbi_assembly_sequencer"
-    bl_space_type = 'VIEW_3D'
-    bl_region_type = 'UI'
-    bl_category = 'Assembly Sequencer'
-
-    def draw(self, context):
-        layout = self.layout
-
-        layout.label(text="Prepare Base:")
-        row = layout.row()
-        row.operator("object.microbi_set_seam", text="Set Seam (Edit Mode)", icon='MESH_UVSPHERE')
-
-        row = layout.row()
-        row.operator("object.microbi_clear_seam", text="Clear Seam (Edit Mode)", icon='LOOP_BACK')
-
-        row = layout.row()
-        row.operator("object.microbi_uv_unwrap", text="UV Unwrap", icon='MESH_GRID')
-        row.operator("object.microbi_rotate_90", text="Rotate 90°", icon='FILE_REFRESH')
-
-        row = layout.row()
-        row.operator("object.microbi_create_mst", text="Sort Faces", icon='NODETREE')
-
-        row = layout.row()
-        row.operator("object.microbi_toggle_gpencil_visibility", text="Show/Hide MST", icon='HIDE_OFF')
-
-        layout.label(text="Prepare Components:")
-        row = layout.row()
-        row.operator("object.microbi_create_loose_parts", text="Create Loose Parts", icon="XRAY")
-
-        row = layout.row()
-        row.operator("object.microbi_sort_components", text="Sort Components", icon="NODETREE")
-
-        layout.label(text="Utils:")
-
-        row = layout.row()
-        row.operator("object.microbi_edge_naming", text="Edge Naming", icon='FONT_DATA')
-
-        layout.prop(context.scene, 'microbi_face_text_size', text="Face Text Size")
-        layout.prop(context.scene, 'microbi_edge_text_size', text="Edge Text Size")
-
-        layout.label(text="Select Component:")
-        row = layout.row()
-        row.prop(context.scene, 'microbi_component_name', text="")
-        row.operator("object.microbi_select_component", text="Select", icon='VIEWZOOM')
-
-def register():
-    bpy.utils.register_class(FaceDataPropertyGroup)
-    bpy.utils.register_class(SortedFaceIndexPropertyGroup)
-    bpy.types.Scene.face_data_3d = bpy.props.CollectionProperty(type=FaceDataPropertyGroup)
-    bpy.types.Scene.face_data_2d = bpy.props.CollectionProperty(type=FaceDataPropertyGroup)
-    bpy.types.Scene.sorted_face_indices = bpy.props.CollectionProperty(type=SortedFaceIndexPropertyGroup)
-
-    bpy.types.Scene.microbi_face_text_size = bpy.props.FloatProperty(
-        name="Face Text Size",
-        description="Size of the text created by the sequencer for faces",
-        default=0.01,
-        min=0.001,
-        max=100,
-        update=update_face_text_size
-    )
-    bpy.types.Scene.microbi_edge_text_size = bpy.props.FloatProperty(
-        name="Edge Text Size",
-        description="Size of the text created by the sequencer for edges",
-        default=0.01,
-        min=0.001,
-        max=100,
-        update=update_edge_text_size
-    )
-    bpy.types.Scene.microbi_component_name = bpy.props.StringProperty(
-        name="Component Name",
-        description="Name of the component to select",
-    )
-
-    bpy.utils.register_class(MicrobiAssemblySequencerPanel)
-    bpy.utils.register_class(MICROBI_OT_set_seam)
-    bpy.utils.register_class(MICROBI_OT_clear_seam)
-    bpy.utils.register_class(MICROBI_OT_uv_unwrap)
-    bpy.utils.register_class(MICROBI_OT_rotate_90)
-    bpy.utils.register_class(MICROBI_OT_create_mst)
-    bpy.utils.register_class(MICROBI_OT_toggle_gpencil_visibility)
-    bpy.utils.register_class(MICROBI_OT_create_loose_parts)
-    bpy.utils.register_class(MICROBI_OT_sort_components)
-    bpy.utils.register_class(MICROBI_OT_edge_naming)
-    bpy.utils.register_class(MICROBI_OT_select_component)
-
-def unregister():
-    del bpy.types.Scene.face_data_3d
-    del bpy.types.Scene.face_data_2d
-    del bpy.types.Scene.microbi_face_text_size
-    del bpy.types.Scene.microbi_edge_text_size
-    del bpy.types.Scene.microbi_component_name
-
-    bpy.utils.unregister_class(MicrobiAssemblySequencerPanel)
-    bpy.utils.unregister_class(MICROBI_OT_set_seam)
-    bpy.utils.unregister_class(MICROBI_OT_clear_seam)
-    bpy.utils.unregister_class(MICROBI_OT_uv_unwrap)
-    bpy.utils.unregister_class(MICROBI_OT_rotate_90)
-    bpy.utils.unregister_class(MICROBI_OT_create_mst)
-    bpy.utils.unregister_class(MICROBI_OT_toggle_gpencil_visibility)
-    bpy.utils.unregister_class(MICROBI_OT_create_loose_parts)
-    bpy.utils.unregister_class(MICROBI_OT_sort_components)
-    bpy.utils.unregister_class(MICROBI_OT_edge_naming)
-    bpy.utils.unregister_class(MICROBI_OT_select_component)
-
-if __name__ == "__main__":
-    register()
