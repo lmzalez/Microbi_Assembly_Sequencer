@@ -1,1 +1,0 @@
-# Microbi_Assembly_Sequencer
