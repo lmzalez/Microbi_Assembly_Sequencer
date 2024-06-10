@@ -322,7 +322,7 @@ class MICROBI_OT_create_mst(bpy.types.Operator):
 
         def add_gp_material(gpencil):
             material_name = "GP_Material"
-            if (material_name not in bpy.data.materials):
+            if material_name not in bpy.data.materials:
                 gp_material = bpy.data.materials.new(name=material_name)
                 bpy.data.materials.create_gpencil_data(gp_material)
                 gp_material.grease_pencil.color = (0.94, 0.99, 0.91, 1)
@@ -655,7 +655,7 @@ class MICROBI_OT_edge_naming(bpy.types.Operator):
 
         return {'FINISHED'}
 
-# Operator to select a component by its name
+# Operator to select a component by its part name
 class MICROBI_OT_select_component(bpy.types.Operator):
     bl_idname = "object.microbi_select_component"
     bl_label = "Select Component"
@@ -675,7 +675,7 @@ class MICROBI_OT_select_component(bpy.types.Operator):
 
         return {'FINISHED'}
 
-# Operator to define UI panel
+# User interface panel for the Microbi Assembly Sequencer add-on in the 3D view's Tool tab
 class MicrobiAssemblySequencerPanel(bpy.types.Panel):
     bl_label = "Microbi Assembly Sequencer"
     bl_idname = "OBJECT_PT_microbi_assembly_sequencer"
