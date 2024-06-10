@@ -26,12 +26,11 @@ import importlib
 import os
 import sys
 
-# Ensure the correct path for imports
-addon_dir = os.path.dirname(__file__)
+addon_name = "Microbi_Assembly_Sequencer-main"  # This should match the downloaded folder name
+addon_dir = os.path.join(os.path.dirname(__file__), addon_name)
 if addon_dir not in sys.path:
     sys.path.append(addon_dir)
 
-# Import the addon module
 if "addon" in locals():
     importlib.reload(addon)
 else:
