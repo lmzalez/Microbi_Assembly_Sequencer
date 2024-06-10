@@ -31,7 +31,8 @@ addon_dir = os.path.dirname(__file__)
 if addon_dir not in sys.path:
     sys.path.append(addon_dir)
 
-if "bpy" in locals():
+# Import the addon module
+if "addon" in locals():
     importlib.reload(addon)
 else:
     from . import addon
