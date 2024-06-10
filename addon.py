@@ -654,3 +654,71 @@ class MICROBI_OT_edge_naming(bpy.types.Operator):
                 edge_text_obj.name = f"Edge_{edge.index}_Label"
 
         return {'FINISHED'}
+
+# Operator to select a component by its name
+class MICROBI_OT_select_component(bpy.types.Operator):
+    bl_idname = "object.microbi_select_component"
+    bl_label = "Select Component"
+    bl_description = "Select a component by its name"
+
+    def execute(self, context):
+        component_name = context.scene.microbi_component_name
+        obj = bpy.data.objects.get(component_name)
+
+        if obj:
+            bpy.ops.object.select_all(action='DESELECT')
+            obj.select_set(True)
+            context.view_layer.objects.active = obj
+            self.report({'INFO'}, f"Selected component: {component_name}")
+        else:
+            self.report({'ERROR'}, f"Component '{component_name}' does not exist")
+
+        return {'FINISHED'}
+
+# Operator to define UI panel
+class MicrobiAssemblySequencerPanel(bpy.types.Panel):
+    bl_label = "Microbi Assembly Sequencer"
+    bl_idname = "OBJECT_PT_microbi_assembly_sequencer"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = 'Assembly Sequencer'
+
+    def draw(self, context):
+        layout = self.layout
+
+        layout.label(text="Prepare Base:")
+        row = layout.row()
+        row.operator("object.microbi_set_seam", text="Set Seam (Edit Mode)", icon='MESH_UVSPHERE')
+
+        row = layout.row()
+        row.operator("object.microbi_clear_seam", text="Clear Seam (Edit Mode)", icon='LOOP_BACK')
+
+        row = layout.row()
+        row.operator("object.microbi_uv_unwrap", text="UV Unwrap", icon='MESH_GRID')
+        row.operator("object.microbi_rotate_90", text="Rotate 90°", icon='FILE_REFRESH')
+
+        row = layout.row()
+        row.operator("object.microbi_create_mst", text="Sort Faces", icon='NODETREE')
+
+        row = layout.row()
+        row.operator("object.microbi_toggle_gpencil_visibility", text="Show/Hide MST", icon='HIDE_OFF')
+
+        layout.label(text="Prepare Components:")
+        row = layout.row()
+        row.operator("object.microbi_create_loose_parts", text="Create Loose Parts", icon="XRAY")
+
+        row = layout.row()
+        row.operator("object.microbi_sort_components", text="Sort Components", icon="NODETREE")
+
+        layout.label(text="Utils:")
+
+        row = layout.row()
+        row.operator("object.microbi_edge_naming", text="Edge Naming", icon='FONT_DATA')
+
+        layout.prop(context.scene, 'microbi_face_text_size', text="Face Text Size")
+        layout.prop(context.scene, 'microbi_edge_text_size', text="Edge Text Size")
+
+        layout.label(text="Select Component:")
+        row = layout.row()
+        row.prop(context.scene, 'microbi_component_name', text="")
+        row.operator("object.microbi_select_component", text="Select", icon='VIEWZOOM')
