@@ -22,6 +22,16 @@ bl_info = {
 }
 
 import bpy
+import os
+import sys
+
+# Ensure the correct path for imports
+addon_dir = os.path.dirname(__file__)
+if addon_dir not in sys.path:
+    sys.path.append(addon_dir)
+
+print("Initializing Microbi Assembly Sequencer...")
+
 from .addon import (
     update_face_text_size,
     update_edge_text_size,
@@ -39,6 +49,8 @@ from .addon import (
     MICROBI_OT_select_component,
     MicrobiAssemblySequencerPanel,
 )
+
+print("Import successful")
 
 def register():
     bpy.utils.register_class(FaceDataPropertyGroup)

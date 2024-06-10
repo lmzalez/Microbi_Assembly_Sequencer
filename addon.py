@@ -7,6 +7,8 @@ import math
 import mathutils
 from mathutils import Vector
 
+print("addon.py is being imported")
+
 # Update the size of the text displayed on faces in the 3D view
 def update_face_text_size(self, context):
     print(f"Updating face text size to {context.scene.microbi_face_text_size}")
