@@ -22,6 +22,7 @@ bl_info = {
 }
 
 import bpy
+import importlib
 import os
 import sys
 
@@ -29,6 +30,11 @@ import sys
 addon_dir = os.path.dirname(__file__)
 if addon_dir not in sys.path:
     sys.path.append(addon_dir)
+
+if "bpy" in locals():
+    importlib.reload(addon)
+else:
+    from . import addon
 
 print("Initializing Microbi Assembly Sequencer...")
 
