@@ -25,6 +25,19 @@ def update_edge_text_size(self, context):
             print(f"Updating {obj.name} to size {context.scene.microbi_edge_text_size}")
             obj.data.size = context.scene.microbi_edge_text_size
 
+# Update the size of the MST Gpencil Object
+def update_line_weight(self, context):
+    print(f"Updating line weight to {context.scene.microbi_line_weight}")
+    line_weight = context.scene.microbi_line_weight
+    
+    # Iterate through all Grease Pencil objects and update stroke thickness
+    for gpencil in bpy.data.grease_pencils:
+        for layer in gpencil.layers:
+            for frame in layer.frames:
+                for stroke in frame.strokes:
+                    for point in stroke.points:
+                        point.pressure = line_weight
+
 # Property group to store face data, including index, centroid, and transformation matrix
 class FaceDataPropertyGroup(bpy.types.PropertyGroup):
     face_index: bpy.props.IntProperty()
@@ -347,7 +360,7 @@ class MICROBI_OT_create_mst(bpy.types.Operator):
                 colors.append((r, g, b, 1.0))
             return colors
 
-        def draw_grease_pencil_line(gp_layer, p1, p2, material_index, color):
+        def draw_grease_pencil_line(gp_layer, p1, p2, material_index, color, context):
             if gp_layer.frames:
                 frame = gp_layer.frames[0]
             else:
@@ -360,8 +373,11 @@ class MICROBI_OT_create_mst(bpy.types.Operator):
             stroke.points[1].co = p2
             stroke.material_index = material_index
 
+            thickness = context.scene.microbi_line_weight
+
             for point in stroke.points:
                 point.vertex_color = color
+                point.pressure = thickness  # Use the pressure attribute to simulate thickness
 
         def create_text_at(location, text, collection, context, is_face_text=True):
             text_size = context.scene.microbi_face_text_size if is_face_text else context.scene.microbi_edge_text_size
@@ -425,6 +441,7 @@ class MICROBI_OT_create_mst(bpy.types.Operator):
             if obj is None or obj.type != 'MESH':
                 raise ValueError("Selected object is not a mesh or no object is selected")
 
+            bpy.context.view_layer.objects.active = obj
             bpy.ops.object.mode_set(mode='OBJECT')
             bpy.ops.object.select_all(action='DESELECT')
             obj.select_set(True)
@@ -444,6 +461,9 @@ class MICROBI_OT_create_mst(bpy.types.Operator):
             material_index = add_gp_material(gpencil)
 
             centroids = {f.index: f.calc_center_median() for f in bm.faces}
+
+            global_start_face = min(centroids.keys(), key=lambda i: (centroids[i].x, centroids[i].y))
+
             adjacency_list = {f.index: [] for f in bm.faces}
             for edge in bm.edges:
                 linked_faces = list(edge.link_faces)
@@ -453,48 +473,87 @@ class MICROBI_OT_create_mst(bpy.types.Operator):
                     adjacency_list[f1.index].append((weight, f2.index))
                     adjacency_list[f2.index].append((weight, f1.index))
 
-            start_face = min(centroids.keys(), key=lambda i: (centroids[i].x, centroids[i].y))
+            components = []
+            visited_faces = set()
+            for face_index in adjacency_list:
+                if face_index not in visited_faces:
+                    stack = [face_index]
+                    component = []
+                    while stack:
+                        current_face = stack.pop()
+                        if current_face not in visited_faces:
+                            visited_faces.add(current_face)
+                            component.append(current_face)
+                            for _, neighbor in adjacency_list[current_face]:
+                                if neighbor not in visited_faces:
+                                    stack.append(neighbor)
+                    components.append(component)
 
-            print("Running Prim's Algorithm")
-            mst, edge_map, dfs_order = prim(start_face, adjacency_list, gp_layer)
-            print(f"mst: {mst}, edge_map: {edge_map}, dfs_order: {dfs_order}")
+            # Process the component containing the global start face first
+            for component in components:
+                if global_start_face in component:
+                    start_component = component
+                    break
 
-            new_indices = {}
-            print("Running Weighted DFS")
-            final_index = weighted_dfs(start_face, edge_map, centroids, mst_collection, context, index=start_index, index_map=new_indices, dfs_order=dfs_order)
-            print(f"new_indices: {new_indices}, dfs_order: {dfs_order}")
+            # Ensure the component with the global start face is processed first
+            remaining_components = [component for component in components if component != start_component]
+            components_order = [start_component] + remaining_components
 
-            filtered_dfs_order = [pair for pair in dfs_order if isinstance(pair, tuple)]
-            print(f"Filtered dfs_order: {filtered_dfs_order}")
+            final_index = start_index
+            for component in components_order:
+                if global_start_face in component:
+                    start_face = global_start_face
+                else:
+                    start_face = min(component, key=lambda i: (centroids[i].x, centroids[i].y))
 
-            num_faces = total_faces
-            colors = colormap_func(num_faces)
-            for from_node, to_node in filtered_dfs_order:
-                factor = (new_indices[to_node] - 1) / (num_faces - 1) if num_faces > 1 else 0
-                color = colors[int(factor * (num_faces - 1))]
-                draw_grease_pencil_line(gp_layer, centroids[from_node], centroids[to_node], material_index, color)
+                mst, edge_map, dfs_order = prim(start_face, {k: adjacency_list[k] for k in component}, gp_layer)
+
+                new_indices = {}
+                final_index = weighted_dfs(start_face, edge_map, centroids, mst_collection, context, index=final_index, index_map=new_indices, dfs_order=dfs_order)
+
+                filtered_dfs_order = [pair for pair in dfs_order if isinstance(pair, tuple)]
+
+                num_faces = total_faces
+                colors = colormap_func(num_faces)
+                for from_node, to_node in filtered_dfs_order:
+                    try:
+                        factor = (new_indices[to_node] - 1) / (num_faces - 1) if num_faces > 1 else 0
+                        color = colors[int(factor * (num_faces - 1))]
+                        draw_grease_pencil_line(gp_layer, centroids[from_node], centroids[to_node], material_index, color, context)
+                    except KeyError:
+                        pass
+
+                # Update final_index for next component
+                final_index = max(new_indices.values()) + 1
 
             bm.to_mesh(obj.data)
             bm.free()
+            bpy.context.view_layer.update()  # Force update to maintain internal state consistency
             obj.data.update()
 
             return final_index
 
-        selected_objects = [obj for obj in bpy.context.selected_objects if obj.type == 'MESH']
-        if len(selected_objects) == 0:
-            raise ValueError("No mesh objects selected")
-        elif len(selected_objects) == 1:
-            process_mesh(selected_objects[0], cool_colormap, total_faces=len(selected_objects[0].data.polygons), context=context)
-        else:
-            active_object = bpy.context.view_layer.objects.active
-            if active_object not in selected_objects:
-                raise ValueError("Active object is not in the selection")
+        try:
+            selected_objects = [obj for obj in bpy.context.selected_objects if obj.type == 'MESH']
+            if len(selected_objects) == 0:
+                raise ValueError("No mesh objects selected")
+            elif len(selected_objects) == 1:
+                process_mesh(selected_objects[0], cool_colormap, total_faces=len(selected_objects[0].data.polygons), context=context)
+            else:
+                active_object = bpy.context.view_layer.objects.active
+                if active_object not in selected_objects:
+                    raise ValueError("Active object is not in the selection")
 
-            total_faces = sum(len(obj.data.polygons) for obj in selected_objects)
-            next_start_index = process_mesh(active_object, cool_colormap, total_faces=total_faces, context=context)
-            for obj in selected_objects:
-                if obj != active_object:
-                    next_start_index = process_mesh(obj, cool_colormap, total_faces=total_faces, start_index=next_start_index + 1, context=context)
+                total_faces = sum(len(obj.data.polygons) for obj in selected_objects)
+                next_start_index = process_mesh(active_object, cool_colormap, total_faces=total_faces, context=context)
+                for obj in selected_objects:
+                    if obj != active_object:
+                        next_start_index = process_mesh(obj, cool_colormap, total_faces=total_faces, start_index=next_start_index + 1, context=context)
+
+            bpy.ops.ed.undo_push(message="Create MST")
+
+        except Exception as e:
+            self.report({'ERROR'}, str(e))
 
         return {'FINISHED'}
 
@@ -719,6 +778,7 @@ class MicrobiAssemblySequencerPanel(bpy.types.Panel):
 
         layout.prop(context.scene, 'microbi_face_text_size', text="Face Text Size")
         layout.prop(context.scene, 'microbi_edge_text_size', text="Edge Text Size")
+        layout.prop(context.scene, 'microbi_line_weight', text="Line Weight")
 
         layout.label(text="Select Component:")
         row = layout.row()

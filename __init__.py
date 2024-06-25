@@ -17,7 +17,7 @@ bl_info = {
     "category": "Object",
     "description": "A toolset for creating an assembly sequence of multi-part designs",
     "author": "Laura Maria Gonzalez",
-    "version": (1, 0),
+    "version": (1, 1),
     "location": "View3D > Tool"
 }
 
@@ -35,6 +35,7 @@ print("Initializing Microbi Assembly Sequencer...")
 from .addon import (
     update_face_text_size,
     update_edge_text_size,
+    update_line_weight,
     FaceDataPropertyGroup,
     SortedFaceIndexPropertyGroup,
     MICROBI_OT_set_seam,
@@ -79,7 +80,14 @@ def register():
         name="Component Name",
         description="Name of the component to select",
     )
-
+    bpy.types.Scene.microbi_line_weight = bpy.props.FloatProperty(
+        name="Line Weight",
+        description="Thickness of the Grease Pencil lines",
+        default=10.0,
+        min=1.0,
+        max=100.0,
+        update=update_line_weight
+    )
     bpy.utils.register_class(MicrobiAssemblySequencerPanel)
     bpy.utils.register_class(MICROBI_OT_set_seam)
     bpy.utils.register_class(MICROBI_OT_clear_seam)
@@ -98,6 +106,7 @@ def unregister():
     del bpy.types.Scene.microbi_face_text_size
     del bpy.types.Scene.microbi_edge_text_size
     del bpy.types.Scene.microbi_component_name
+    del bpy.types.Scene.microbi_line_weight
 
     bpy.utils.unregister_class(MicrobiAssemblySequencerPanel)
     bpy.utils.unregister_class(MICROBI_OT_set_seam)
